@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Item Ranker</title>
+    <title>Book Category Ranker</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load Inter font -->
@@ -17,48 +17,52 @@
         }
         .draggable-item.dragging {
             opacity: 0.5;
-            background-color: #ebf8ff;
-            border: 1px dashed #3182ce;
+            background-color: #ebf8ff; /* Tailwind's blue-50 */
+            border: 1px dashed #3182ce; /* Tailwind's blue-600 */
         }
-        .drag-handle-icon {
-            width: 16px;
-            height: 20px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-around;
+        
+        /* --- ADDED: CSS Counter for numbering --- */
+        #sortable-list {
+            /* 1. Initializes the counter "rank" to 0 for this container */
+            counter-reset: rank;
         }
-        .drag-handle-icon span {
-            display: block;
-            width: 100%;
-            height: 2px;
-            background-color: #a0aec0;
+
+        .draggable-item::before {
+            /* 2. Increments the "rank" counter for each item */
+            counter-increment: rank;
+            
+            /* 3. Displays the current value of "rank" */
+            content: counter(rank);
+
+            /* 4. Styling for the number */
+            color: #a0aec0; /* Tailwind's gray-500 */
+            font-weight: 600;
+            font-size: 1rem; /* text-base */
+            width: 2.5rem;   /* Fixed width for alignment */
+            flex-shrink: 0;  /* Prevents the number from shrinking */
+            text-align: right;
+            padding-right: 1rem; /* Space between number and text */
         }
+     
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+<body class="bg-gray-100 p-4 pt-8 sm:pt-12">
 
-    <!-- We wrap everything in a form for submission -->
-    <form id="ranking-form" class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full max-w-lg">
+    <form id="ranking-form" class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full max-w-lg mx-auto">
         
         <h1 class="text-2xl sm:text-3xl font-bold text-center text-gray-800 mb-6">
-            Rank Your Items
+            Book Club Category Rankings
         </h1>
 
-        <!-- Step 1: User Name -->
+        <!-- Step 1: Draggable List -->
         <div class="mb-6">
-            <label for="userName" class="block text-sm font-medium text-gray-700 mb-2">Your Name</label>
-            <input type="text" id="userName" name="name" placeholder="Enter your full name" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200">
-        </div>
-
-        <!-- Step 2: Draggable List -->
-        <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Your Rankings (Drag to reorder)</label>
-            <div id="sortable-list" class="border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50 max-h-96 overflow-y-auto">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Please put the categories in order of favourite (1) to least favourite (19)</label>
+            <div id="sortable-list" class="border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50">
                 <!-- Items will be dynamically inserted here -->
             </div>
         </div>
 
-        <!-- Step 3: Submit Button -->
+        <!-- Step 2: Submit Button -->
         <button id="submit-btn" type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-200 ease-in-out transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed">
             Submit Rankings
         </button>
@@ -71,29 +75,30 @@
     <script>
         // --- CONFIGURATION ---
         
-        // !!! IMPORTANT: Replace this with your own Formspree endpoint URL
+        // Your Formspree endpoint URL
         const FORM_ENDPOINT = "https://formspree.io/f/mwprgdap";
         
-        // Define the 18 items to be ranked
+        // Define the items to be ranked
         const ITEMS_TO_RANK = [
-            "Item 1: Feature A",
-            "Item 2: Feature B",
-            "Item 3: Feature C",
-            "Item 4: Feature D",
-            "Item 5: Feature E",
-            "Item 6: Feature F",
-            "Item 7: Feature G",
-            "Item 8: Feature H",
-            "Item 9: Feature I",
-            "Item 10: Feature J",
-            "Item 11: Feature K",
-            "Item 12: Feature L",
-            "Item 13: Feature M",
-            "Item 14: Feature N",
-            "Item 15: Feature O",
-            "Item 16: Feature P",
-            "Item 17: Feature Q",
-            "Item 18: Feature R"
+            "Action packed",
+            "Science Fiction",
+            "Book in Translation",
+            "\"Weird\" Fiction",
+            "Retellings (fairytales)",
+            "Book You \"Should\" Have Read (or pretend to have read)",
+            "Horror - lite",
+            "Timey Wimey Wibbly-Wobbly (books that play around with time)",
+            "A Twist on a Classic",
+            "Locked Room Mystery",
+            "Queer Norm",
+            "Unreliable/ Unlikable Narrator",
+            "Anything written by T.Kingfisher",
+            "Short Fiction (less than 250 pages)",
+            "Vetted Romance (a \"banger\" in terms of plot, but not necessarily spicy)",
+            "Last Best Book You read",
+            "Oldest Book on Your TBR",
+            "Bookish Books for Book People",
+            "A Book You Loved, But Cannot Remember the Plot"
         ];
         
         // --- APPLICATION LOGIC ---
@@ -102,7 +107,6 @@
             const listContainer = document.getElementById('sortable-list');
             const form = document.getElementById('ranking-form');
             const submitButton = document.getElementById('submit-btn');
-            const userNameInput = document.getElementById('userName');
             const messageBox = document.getElementById('message-box');
             
             let draggingItem = null;
@@ -110,18 +114,16 @@
             // 1. Populate the list
             function createItemElement(text) {
                 const item = document.createElement('div');
+                // The "cursor-move" class is still present, so users know it's draggable
                 item.className = 'draggable-item bg-white p-3 rounded-lg shadow-sm flex items-center cursor-move border border-gray-200';
                 item.draggable = true;
                 
-                const handle = document.createElement('div');
-                handle.className = 'drag-handle-icon mr-3 flex-shrink-0';
-                handle.innerHTML = '<span></span><span></span><span></span>';
+                // --- REMOVED: Drag handle element creation ---
                 
                 const itemText = document.createElement('span');
                 itemText.className = 'item-text text-gray-800';
                 itemText.textContent = text;
                 
-                item.appendChild(handle);
                 item.appendChild(itemText);
                 return item;
             }
@@ -173,20 +175,6 @@
             // 3. Handle Form Submission
             form.addEventListener('submit', async (e) => {
                 e.preventDefault(); // Stop the form from submitting normally
-
-                const userName = userNameInput.value.trim();
-
-                // Simple validation
-                if (!userName) {
-                    showMessage('Please enter your name.', 'error');
-                    userNameInput.focus();
-                    return;
-                }
-                
-                if (FORM_ENDPOINT === "https://formspree.io/f/YOUR_UNIQUE_ID") {
-                     showMessage('Error: The developer needs to set the FORM_ENDPOINT variable in the code.', 'error');
-                     return;
-                }
                 
                 // Disable button
                 submitButton.disabled = true;
@@ -196,12 +184,12 @@
                 // Get the ranked items
                 const items = listContainer.querySelectorAll('.item-text');
                 const rankedList = Array.from(items).map((item, index) => {
+                    // The numbering here is for the final email text
                     return `${index + 1}. ${item.textContent}`;
                 });
 
                 // Create the data payload
                 const formData = {
-                    name: userName,
                     rankings: rankedList.join('\n') // Send as a single string for easy reading in email
                 };
 
@@ -218,10 +206,7 @@
 
                     if (response.ok) {
                         showMessage('Success! Your rankings have been submitted.', 'success');
-                        form.reset(); // Clear the name
                         submitButton.textContent = 'Submitted!';
-                        // Optionally, you could redirect to a "thank you" page
-                        // window.location.href = "/thank-you.html";
                     } else {
                         throw new Error('Form submission failed.');
                     }
@@ -242,7 +227,7 @@
                     messageBox.classList.add('text-red-600');
                 } else if (type === 'success') {
                     messageBox.classList.add('text-green-600');
-                } else {
+S                } else {
                     messageBox.classList.add('text-gray-700'); // For 'info'
                 }
             }
