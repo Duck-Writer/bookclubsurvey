@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Item Ranker</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .draggable-item.dragging {
+            opacity: 0.5;
+            background-color: #ebf8ff;
+            border: 1px dashed #3182ce;
+        }
+        .drag-handle-icon {
+            width: 16px;
+            height: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+        .drag-handle-icon span {
+            display: block;
+            width: 100%;
+            height: 2px;
+            background-color: #a0aec0;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <!-- We wrap everything in a form for submission -->
+    <form id="ranking-form" class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full max-w-lg">
+        
+        <h1 class="text-2xl sm:text-3xl font-bold text-center text-gray-800 mb-6">
+            Rank Your Items
+        </h1>
+
+        <!-- Step 1: User Name -->
+        <div class="mb-6">
+            <label for="userName" class="block text-sm font-medium text-gray-700 mb-2">Your Name</label>
+            <input type="text" id="userName" name="name" placeholder="Enter your full name" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200">
+        </div>
+
+        <!-- Step 2: Draggable List -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Your Rankings (Drag to reorder)</label>
+            <div id="sortable-list" class="border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50 max-h-96 overflow-y-auto">
+                <!-- Items will be dynamically inserted here -->
+            </div>
+        </div>
+
+        <!-- Step 3: Submit Button -->
+        <button id="submit-btn" type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-200 ease-in-out transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed">
+            Submit Rankings
+        </button>
+
+        <!-- Message Box for feedback -->
+        <div id="message-box" class="mt-4 text-center text-sm font-medium hidden"></div>
+
+    </form>
+
+    <script>
+        // --- CONFIGURATION ---
+        
+        // !!! IMPORTANT: Replace this with your own Formspree endpoint URL
+        const FORM_ENDPOINT = "https://formspree.io/f/YOUR_UNIQUE_ID";
+        
+        // Define the 18 items to be ranked
+        const ITEMS_TO_RANK = [
+            "Item 1: Feature A",
+            "Item 2: Feature B",
+            "Item 3: Feature C",
+            "Item 4: Feature D",
+            "Item 5: Feature E",
+            "Item 6: Feature F",
+            "Item 7: Feature G",
+            "Item 8: Feature H",
+            "Item 9: Feature I",
+            "Item 10: Feature J",
+            "Item 11: Feature K",
+            "Item 12: Feature L",
+            "Item 13: Feature M",
+            "Item 14: Feature N",
+            "Item 15: Feature O",
+            "Item 16: Feature P",
+            "Item 17: Feature Q",
+            "Item 18: Feature R"
+        ];
+        
+        // --- APPLICATION LOGIC ---
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const listContainer = document.getElementById('sortable-list');
+            const form = document.getElementById('ranking-form');
+            const submitButton = document.getElementById('submit-btn');
+            const userNameInput = document.getElementById('userName');
+            const messageBox = document.getElementById('message-box');
+            
+            let draggingItem = null;
+
+            // 1. Populate the list
+            function createItemElement(text) {
+                const item = document.createElement('div');
+                item.className = 'draggable-item bg-white p-3 rounded-lg shadow-sm flex items-center cursor-move border border-gray-200';
+                item.draggable = true;
+                
+                const handle = document.createElement('div');
+                handle.className = 'drag-handle-icon mr-3 flex-shrink-0';
+                handle.innerHTML = '<span></span><span></span><span></span>';
+                
+                const itemText = document.createElement('span');
+                itemText.className = 'item-text text-gray-800';
+                itemText.textContent = text;
+                
+                item.appendChild(handle);
+                item.appendChild(itemText);
+                return item;
+            }
+            
+            ITEMS_TO_RANK.forEach(text => {
+                listContainer.appendChild(createItemElement(text));
+            });
+
+            // 2. Drag and Drop Listeners
+            listContainer.addEventListener('dragstart', (e) => {
+                if (e.target.classList.contains('draggable-item')) {
+                    draggingItem = e.target;
+                    setTimeout(() => draggingItem.classList.add('dragging'), 0);
+                    e.dataTransfer.effectAllowed = 'move';
+                }
+            });
+
+            listContainer.addEventListener('dragend', (e) => {
+                if (draggingItem) {
+                    draggingItem.classList.remove('dragging');
+                    draggingItem = null;
+                }
+            });
+
+            listContainer.addEventListener('dragover', (e) => {
+                e.preventDefault(); 
+                if (!draggingItem) return;
+                const afterElement = getDragAfterElement(listContainer, e.clientY);
+                if (afterElement == null) {
+                    listContainer.appendChild(draggingItem);
+                } else {
+                    listContainer.insertBefore(draggingItem, afterElement);
+                }
+            });
+            
+            function getDragAfterElement(container, y) {
+                const draggableElements = [...container.querySelectorAll('.draggable-item:not(.dragging)')];
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+
+            // 3. Handle Form Submission
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault(); // Stop the form from submitting normally
+
+                const userName = userNameInput.value.trim();
+
+                // Simple validation
+                if (!userName) {
+                    showMessage('Please enter your name.', 'error');
+                    userNameInput.focus();
+                    return;
+                }
+                
+                if (FORM_ENDPOINT === "https://formspree.io/f/YOUR_UNIQUE_ID") {
+                     showMessage('Error: The developer needs to set the FORM_ENDPOINT variable in the code.', 'error');
+                     return;
+                }
+                
+                // Disable button
+                submitButton.disabled = true;
+                submitButton.textContent = 'Submitting...';
+                showMessage('Sending your rankings...', 'info');
+
+                // Get the ranked items
+                const items = listContainer.querySelectorAll('.item-text');
+                const rankedList = Array.from(items).map((item, index) => {
+                    return `${index + 1}. ${item.textContent}`;
+                });
+
+                // Create the data payload
+                const formData = {
+                    name: userName,
+                    rankings: rankedList.join('\n') // Send as a single string for easy reading in email
+                };
+
+                // Send the data to Formspree
+                try {
+                    const response = await fetch(FORM_ENDPOINT, {
+                        method: 'POST',
+                        body: JSON.stringify(formData),
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        showMessage('Success! Your rankings have been submitted.', 'success');
+                        form.reset(); // Clear the name
+                        submitButton.textContent = 'Submitted!';
+                        // Optionally, you could redirect to a "thank you" page
+                        // window.location.href = "/thank-you.html";
+                    } else {
+                        throw new Error('Form submission failed.');
+                    }
+                } catch (error) {
+                    console.error('Submission error:', error);
+                    showMessage('Error: Could not submit rankings. Please try again.', 'error');
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Submit Rankings';
+                }
+            });
+            
+            // Helper function to show messages
+            function showMessage(text, type) {
+                messageBox.textContent = text;
+                messageBox.classList.remove('hidden', 'text-red-600', 'text-green-600', 'text-gray-700');
+                
+                if (type === 'error') {
+                    messageBox.classList.add('text-red-600');
+                } else if (type === 'success') {
+                    messageBox.classList.add('text-green-600');
+                } else {
+                    messageBox.classList.add('text-gray-700'); // For 'info'
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+
