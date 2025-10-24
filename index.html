@@ -210,7 +210,12 @@
                     } else {
                         throw new Error('Form submission failed.');
                     }
-                } 
+                } catch (error) {
+                    console.error('Submission error:', error);
+                    showMessage('Error: Could not submit rankings. Please try again.', 'error');
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Submit Rankings';
+                }
             });
             
             // Helper function to show messages
@@ -230,4 +235,3 @@ S                } else {
     </script>
 </body>
 </html>
-
